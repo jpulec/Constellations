@@ -28,7 +28,7 @@ def run():
                 for connected in image_pixels[(row,col)]:
                     if row < connected[0] or (row < connected[0] and col < connected[1]):
                         continue
-                    draw.line([(row,col), connected])
+                    draw.line([(row,col), connected], fill = 128)
     new_img.show() 
 
 if __name__ == "__main__":
