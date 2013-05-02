@@ -1,46 +1,24 @@
 import Image
 import ImageDraw
 import operator
+import networkx as nx
+from UnionFind import UnionFind
 
-image_pixels = {}
-
-class UnionFind():
-    def __init__(self):
-        self.sets = []
-        self.lookup = {}
-    def make_set(self, item):
-        new_set = [item]
-        self.sets.append(new_set)
-        self.lookup[item] = new_set
-    def union(self, set1, set2):
-        """Merges set1 into set2"""
-        assert(set1 in self.sets)
-        assert(set2 in self.sets)
-        for (item, value) in self.lookup.iteritems():
-            if value == set1:
-                self.lookup[item] = set2
-        self.sets.remove(set1)
-        set2.extend(set1)
-
-class Edge:
-    def __init__(self, v1, v2, weight):
-        self.v1 = v1 
-        self.v2 = v2
-        self.weight = weight
-
-
-def kruskal(graph):
+def kruskal(graph, iterations):
     subtrees = UnionFind()
     tree = []
-    edge_set = [(edge.weight,edge.v1,edge.v2) for edge in edges for edges in graph.itervalues()]
-    edge_set.sort()
-    for w,v1,v2 in edge_set:
-        if subtrees[v1] != subtrees[v2]:
-            tree.append((v1,v2))
-            subtrees.union(v1,v2)
+    edge_set = [(graph[v1][v2]["weight"], v1,v2) for v1 in graph for v2 in graph[v1]]
+    edge_set.sort(cmp=lambda x,y: cmp(x[0], y[0]))
+    for index, edge in enumerate(edge_set):
+        if index > iterations:
+            break
+        if subtrees[edge[1]] != subtrees[edge[2]]:
+            tree.append((edge[1],edge[2]))
+            subtrees.union(edge[1],edge[2])
     return tree
 
 def run():
+    G = nx.Graph()
     DIST = 10
     THRESH = 30
     sky = Image.open("night-sky.jpeg")
@@ -48,30 +26,42 @@ def run():
 
     width = sky.size[0]
     height = sky.size[1]
-    edges = [[] for i in range(width)] 
     for col in range(width):
         for row in range(height):
-            image_pixels[(col,row)] = []
-            if row-1 > 0 and col-1 > 0:
-                weight = tuple(map(operator.abs, (map(operator.sub, pixels[col,row], pixels[col-1, row-1]))))
-                edges =
-                image_pixels[(col,row)].append(Edge((col, row), (col-1, row-1), weight))
+            G.add_node((col,row))
+    for node in G:
+        for col in range(width):
+            for row in range(height):
+                
+                if row-1 > 0 and col-1 > 0:
+                if pixels[col,row][0] > 30 and pixels[col,row][1] > 30 and pixels[col,row][2] > 30:
+                    weight = tuple(map(operator.abs, (map(operator.sub, pixels[col,row], pixels[col-1, row-1]))))
+                    G.add_edge((col,row),(col-1, row-1), weight=weight)
             if row-1 > 0 and col+1 < width:
-                weight = tuple(map(operator.abs, (map(operator.sub ,pixels[col,row], pixels[col+1, row-1]))))
-                image_pixels[(col,row)].append(Edge((col, row), (col+1, row-1), weight))
+                if pixels[col,row][0] > 30 and pixels[col,row][1] > 30 and pixels[col,row][2] > 30:
+                    weight = tuple(map(operator.abs, (map(operator.sub ,pixels[col,row], pixels[col+1, row-1]))))
+                    G.add_edge((col,row), (col+1, row-1), weight=weight)
             if row+1 < height and col-1 > 0:
-                weight = tuple(map(operator.abs, (map(operator.sub ,pixels[col,row], pixels[col-1, row+1]))))
-                image_pixels[(col,row)].append(Edge((col, row), (col-1, row+1), weight))
+                if pixels[col,row][0] > 30 and pixels[col,row][1] > 30 and pixels[col,row][2] > 30:
+                    weight = tuple(map(operator.abs, (map(operator.sub ,pixels[col,row], pixels[col-1, row+1]))))
+                    G.add_edge((col, row), (col-1, row+1), weight=weight)
             if row+1 < height and col+1 < width:
-                weight = tuple(map(operator.abs, (map(operator.sub ,pixels[col,row], pixels[col+1, row+1]))))
-                image_pixels[(col,row)].append(Edge((col, row), (col+1, row+1), weight))
+                if pixels[col,row][0] > 30 and pixels[col,row][1] > 30 and pixels[col,row][2] > 30:
+                    weight = tuple(map(operator.abs, (map(operator.sub ,pixels[col,row], pixels[col+1, row+1]))))
+                    G.add_edge((col, row), (col+1, row+1), weight=weight)
             #if pixels[row, col][0] > THRESH and pixels[row,col][1] > THRESH and pixels[row,col][2] > THRESH:
             #    image_pixels[(row,col)] = []
             #    for x in [row - DIST, row + DIST]:
             #        for y in [col - DIST, col + DIST]:
             #            if (x, y) in image_pixels and (x,y) != (row, col):
             #                image_pixels[(row, col)].append((x,y))
-    kruskal(image_pixels)
+    for num_stars in [100, 1000, 10000, 100000, 1000000, 1000000000000]:
+        sky_copy = sky.copy()
+        draw = ImageDraw.Draw(sky_copy)
+        tree = kruskal(G, num_stars)
+        for v1, v2 in tree:
+            draw.line([(v1[0], v1[1]), (v2[0], v2[1])], fill=128)
+        sky_copy.show()
     #new_img = Image.new("RGB", (1024,768))
     #new_pix = new_img.load()
     #draw = ImageDraw.Draw(new_img)
