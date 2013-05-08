@@ -5,7 +5,44 @@ import operator
 import math
 import random
 import networkx as nx
-from UnionFind import UnionFind
+
+
+class UnionFind:
+    def __init__(self):
+        self.weights = {}
+        self.parents = {}
+
+    def __getitem__(self, object):
+
+        # check for previously unknown object
+        if object not in self.parents:
+            self.parents[object] = object
+            self.weights[object] = 1
+            return object
+
+        # find path of objects leading to the root
+        path = [object]
+        root = self.parents[object]
+        while root != path[-1]:
+            path.append(root)
+            root = self.parents[root]
+
+        # compress the path and return
+        for ancestor in path:
+            self.parents[ancestor] = root
+        return root
+        
+    def __iter__(self):
+        return iter(self.parents)
+
+    def union(self, *objects):
+        roots = [self[x] for x in objects]
+        heaviest = max([(self.weights[r],r) for r in roots])[1]
+        for r in roots:
+            if r != heaviest:
+                self.weights[heaviest] += self.weights[r]
+                self.parents[r] = heaviest
+
 
 class Star:
     def __init__(self, x, y):
@@ -13,7 +50,7 @@ class Star:
         self.top = y
         self.right = x
         self.bottom = y
-        self.in_constellation = False
+        self.constellation_count = 0
 
     def has_pixel(self, x, y):
         return x >= self.left and x <= self.right and y >= self.top and y <= self.bottom
@@ -27,6 +64,9 @@ class Star:
             self.top = y
         if y > self.bottom:
             self.bottom = y
+
+    def __eq__(self, other):
+        return (self.left == other.left and self.right == other.right and self.top == other.top and self.bottom == other.bottom)
 
     def __repr__(self):
         return str((self.left, self.top, self.right, self.bottom))
@@ -50,9 +90,10 @@ def kruskal(graph, iterations):
 
 def run():
     G = nx.Graph()
-    DIST = 10
-    THRESH = 125
-    sky = Image.open("night-sky.jpeg")
+    THRESH = 20
+    DIST = 50
+    DENSITY = 1.2
+    sky = Image.open("fuzzystars.jpg")
     pixels = sky.load()
     stars = []
     width = sky.size[0]
@@ -64,12 +105,9 @@ def run():
                 for y in xrange(row - 1, row + 1):
                     if (x != col and y != row) and x > 0 and x < width and y > 0 and y < height:
                         if not (x, y) in G[(col, row)]:
-                            if pixels[col,row][0] > THRESH and pixels[col,row][1] > THRESH and pixels[col,row][2] > THRESH:
-                                weight = tuple(map(operator.abs, (map(operator.sub, pixels[col,row], pixels[x, y]))))
-                                G.add_edge((col,row),(x, y), weight=weight)
-                            else:
-                                weight = (sys.maxint)
-                                G.add_edge((col,row),(x, y), weight=weight)
+                            lum1 = (0.2126 *  pixels[col,row][0]) + (0.7152 * pixels[col,row][1]) + (0.0722* pixels[col,row][2])
+                            lum2 = (0.2126 *  pixels[x,y][0]) + (0.7152 * pixels[x,y][1]) + (0.0722* pixels[x,y][2])
+                            G.add_edge((col,row),(x, y), weight=(lum1 + lum2) / 2)
 
             #if pixels[row, col][0] > THRESH and pixels[row,col][1] > THRESH and pixels[row,col][2] > THRESH:
             #    image_pixels[(row,col)] = []
@@ -77,13 +115,14 @@ def run():
             #        for y in [col - DIST, col + DIST]:
             #            if (x, y) in image_pixels and (x,y) != (row, col):
             #                image_pixels[(row, col)].append((x,y))
-    for num_stars in [5500]:
+    for num_stars in [5000, 10000, 25000, 50000]: #[4000, 4500, 5000, 5500, 6000]:
         sky_copy = sky.copy()
         tree = kruskal(G, num_stars)
         pixels = sky_copy.load()
         for v1, v2 in tree:
             pixels[v1[0], v1[1]] = (128,0,0)
             pixels[v2[0], v2[1]] = (128,0,0)
+        sky_copy.save("KruskalVerticiesFuzzy%s.png" % str(num_stars))
         sky_copy.show()
         #first need to identify stars in image from red 
         stars = []
@@ -103,7 +142,10 @@ def run():
                     y = 0
                     dx = 0
                     dy = -1
-                    while row + y < height and row + y > 0 and col + x < width and col + x > 0 and pixels[col + x, row + y] == (128,0,0):
+                    while row + y < height and row + y > 0 and col + x < width and col + x > 0:
+                        lum = (0.2126 *  pixels[col + x,row + y][0]) + (0.7152 * pixels[col + x,row + y][1]) + (0.0722* pixels[col + x,row + y][2])
+                        if lum < THRESH:
+                            break
                         star.add_pixel(col + x, row + y)
                         if x == y or (x < 0 and x == -y) or (x > 0 and x == 1-y):
                             dx, dy = -dy, dx
@@ -111,41 +153,35 @@ def run():
                     stars.append(star)
         draw = ImageDraw.Draw(sky_copy)
         for star in stars:
-            rand = random.randint(0, 100)
-            if rand > 85:
-                if not star.in_constellation:
-                    for other in stars:
-                        star_center = ((star.right - star.left) / 2) + star.left, ((star.bottom - star.top) / 2) + star.top
-                        other_center = ((other.right - other.left) / 2) + other.left, ((other.bottom - other.top) / 2) + other.top
-                        dist = math.sqrt(pow(star_center[0] - other_center[0], 2) + pow(star_center[1] - other_center[1], 2))
-                        if dist < 50:
-                            rand2 = random.randint(0, 100)
-                            if rand2 > 85:
-                                if not other.in_constellation:
-                                    draw.line([star_center, other_center], fill = 128)
-                                    other.in_constellation = True
-                                    star.in_constellation = True
-                                    break
-            
-            
+            close_stars = []
+            constell_count = 0
+            star_center = ((star.right - star.left) / 2) + star.left, ((star.bottom - star.top) / 2) + star.top
+            for other in stars:
+                if other == star:
+                    continue
+                other_center = ((other.right - other.left) / 2) + other.left, ((other.bottom - other.top) / 2) + other.top
+                dist = math.sqrt(pow(star_center[0] - other_center[0], 2) + pow(star_center[1] - other_center[1], 2))
+                if dist < DIST:
+                    close_stars.append(other)
+                    constell_count += other.constellation_count
+            constell_count += star.constellation_count
+            if len(close_stars) > 0:
+                if (float(constell_count) / len(close_stars)) < (DENSITY / len(close_stars)):
+                    for close in close_stars:
+                        close_center = ((close.right - close.left) / 2) + close.left, ((close.bottom - close.top) / 2) + close.top
+                        draw.line([star_center, close_center], fill = (256, 256, 256), width=2)
+                        close.constellation_count += 1
+                        star.constellation_count += 1
+                        constell_count += 2
+                        if not (float(constell_count) / len(close_stars)) < (DENSITY / len(close_stars)):
+                            break 
             
             #for x in xrange(star.left, star.right):
                 #for y in xrange(star.top, star.bottom):
                     #pixels[x, y] = (0, 128, 0)
+        sky_copy.save("ConstellationsFuzzy%s.png" % str(num_stars))
         sky_copy.show()
         #print stars
-    new_pix = new_img.load()
-    draw = ImageDraw.Draw(new_img)
-    for col in range(width):
-        for row in range(height):
-            if (col, row) in image_pixels:
-                new_pix[col,row] = (200,200,200)
-                for connected in image_pixels[(col,row)]:
-                    if row < connected[0] or (row < connected[0] and col < connected[1]):
-                        continue
-                    #draw.line([(row,col), connected], fill = 128)
-    new_img.show() 
-
 if __name__ == "__main__":
     run()
 
