@@ -1,5 +1,6 @@
 import Image
 import ImageDraw
+import sys
 import operator
 import networkx as nx
 from UnionFind import UnionFind
@@ -57,52 +58,31 @@ def run():
     for col in xrange(width):
         for row in xrange(height):
             G.add_node((col,row))
-            if row-1 > 0 and col-1 > 0:
-                if pixels[col,row][0] > THRESH and pixels[col,row][1] > THRESH and pixels[col,row][2] > THRESH:
-                    weight = tuple(map(operator.abs, (map(operator.sub, pixels[col,row], pixels[col-1, row-1]))))
-                    G.add_edge((col,row),(col-1, row-1), weight=weight)
-            if row-1 > 0 and col+1 < width:
-                if pixels[col,row][0] > THRESH and pixels[col,row][1] > THRESH and pixels[col,row][2] > THRESH:
-                    weight = tuple(map(operator.abs, (map(operator.sub ,pixels[col,row], pixels[col+1, row-1]))))
-                    G.add_edge((col,row), (col+1, row-1), weight=weight)
-            if row+1 < height and col-1 > 0:
-                if pixels[col,row][0] > THRESH and pixels[col,row][1] > THRESH and pixels[col,row][2] > THRESH:
-                    weight = tuple(map(operator.abs, (map(operator.sub ,pixels[col,row], pixels[col-1, row+1]))))
-                    G.add_edge((col, row), (col-1, row+1), weight=weight)
-            if row+1 < height and col+1 < width:
-                if pixels[col,row][0] > THRESH and pixels[col,row][1] > THRESH and pixels[col,row][2] > THRESH:
-                    weight = tuple(map(operator.abs, (map(operator.sub ,pixels[col,row], pixels[col+1, row+1]))))
-                    G.add_edge((col, row), (col+1, row+1), weight=weight)
-            if row-1 > 0:
-                if pixels[col,row][0] > THRESH and pixels[col,row][1] > THRESH and pixels[col,row][2] > THRESH:
-                    weight = tuple(map(operator.abs, (map(operator.sub, pixels[col,row], pixels[col, row-1]))))
-                    G.add_edge((col,row),(col, row-1), weight=weight)
-            if col+1 < width:
-                if pixels[col,row][0] > THRESH and pixels[col,row][1] > THRESH and pixels[col,row][2] > THRESH:
-                    weight = tuple(map(operator.abs, (map(operator.sub ,pixels[col,row], pixels[col+1, row]))))
-                    G.add_edge((col,row), (col+1, row), weight=weight)
-            if row+1 < height:
-                if pixels[col,row][0] > THRESH and pixels[col,row][1] > THRESH and pixels[col,row][2] > THRESH:
-                    weight = tuple(map(operator.abs, (map(operator.sub ,pixels[col,row], pixels[col, row+1]))))
-                    G.add_edge((col, row), (col, row+1), weight=weight)
-            if col-1 > 0:
-                if pixels[col,row][0] > THRESH and pixels[col,row][1] > THRESH and pixels[col,row][2] > THRESH:
-                    weight = tuple(map(operator.abs, (map(operator.sub ,pixels[col,row], pixels[col-1, row]))))
-                    G.add_edge((col, row), (col-1, row), weight=weight)
+            for x in xrange(col - 1, col + 1):
+                for y in xrange(row - 1, row + 1):
+                    if (x != col and y != row) and x > 0 and x < width and y > 0 and y < height:
+                        if not (x, y) in G[(col, row)]:
+                            if pixels[col,row][0] > THRESH and pixels[col,row][1] > THRESH and pixels[col,row][2] > THRESH:
+                                weight = tuple(map(operator.abs, (map(operator.sub, pixels[col,row], pixels[x, y]))))
+                                G.add_edge((col,row),(x, y), weight=weight)
+                            else:
+                                weight = (sys.maxint)
+                                G.add_edge((col,row),(x, y), weight=weight)
+
             #if pixels[row, col][0] > THRESH and pixels[row,col][1] > THRESH and pixels[row,col][2] > THRESH:
             #    image_pixels[(row,col)] = []
             #    for x in [row - DIST, row + DIST]:
             #        for y in [col - DIST, col + DIST]:
             #            if (x, y) in image_pixels and (x,y) != (row, col):
             #                image_pixels[(row, col)].append((x,y))
-    for num_stars in [100000, 1000000]: #[100, 1000, 10000, 100000, 1000000, 1000000000000]:
+    for num_stars in [5500]:
         sky_copy = sky.copy()
         tree = kruskal(G, num_stars)
         pixels = sky_copy.load()
         for v1, v2 in tree:
             pixels[v1[0], v1[1]] = (128,0,0)
             pixels[v2[0], v2[1]] = (128,0,0)
-        #sky_copy.show()
+        sky_copy.show()
         #first need to identify stars in image from red 
         stars = []
         for col in xrange(width):
@@ -133,17 +113,17 @@ def run():
                     pixels[x, y] = (0, 128, 0)
         sky_copy.show()
         #print stars
-    #new_pix = new_img.load()
-    #draw = ImageDraw.Draw(new_img)
-    #for col in range(width):
-    #    for row in range(height):
-    #        if (col, row) in image_pixels:
-    #            new_pix[col,row] = (200,200,200)
-    #            for connected in image_pixels[(col,row)]:
-    #                if row < connected[0] or (row < connected[0] and col < connected[1]):
-    #                    continue
-    #                #draw.line([(row,col), connected], fill = 128)
-    #new_img.show() 
+    new_pix = new_img.load()
+    draw = ImageDraw.Draw(new_img)
+    for col in range(width):
+        for row in range(height):
+            if (col, row) in image_pixels:
+                new_pix[col,row] = (200,200,200)
+                for connected in image_pixels[(col,row)]:
+                    if row < connected[0] or (row < connected[0] and col < connected[1]):
+                        continue
+                    #draw.line([(row,col), connected], fill = 128)
+    new_img.show() 
 
 if __name__ == "__main__":
     run()
