@@ -1,6 +1,8 @@
 import Image
 import ImageDraw
 import operator
+import math
+import random
 import networkx as nx
 from UnionFind import UnionFind
 
@@ -127,10 +129,29 @@ def run():
                             dx, dy = -dy, dx
                         x, y = x + dx, y + dy
                     stars.append(star)
+        draw = ImageDraw.Draw(sky_copy)
         for star in stars:
-            for x in xrange(star.left, star.right):
-                for y in xrange(star.top, star.bottom):
-                    pixels[x, y] = (0, 128, 0)
+            rand = random.randint(0, 100)
+            if rand > 85:
+                if not star.in_constellation:
+                    for other in stars:
+                        star_center = ((star.right - star.left) / 2) + star.left, ((star.bottom - star.top) / 2) + star.top
+                        other_center = ((other.right - other.left) / 2) + other.left, ((other.bottom - other.top) / 2) + other.top
+                        dist = math.sqrt(pow(star_center[0] - other_center[0], 2) + pow(star_center[1] - other_center[1], 2))
+                        if dist < 50:
+                            rand2 = random.randint(0, 100)
+                            if rand2 > 85:
+                                if not other.in_constellation:
+                                    draw.line([star_center, other_center], fill = 128)
+                                    other.in_constellation = True
+                                    star.in_constellation = True
+                                    break
+            
+            
+            
+            #for x in xrange(star.left, star.right):
+                #for y in xrange(star.top, star.bottom):
+                    #pixels[x, y] = (0, 128, 0)
         sky_copy.show()
         #print stars
     #new_pix = new_img.load()
